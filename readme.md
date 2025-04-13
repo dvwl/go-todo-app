@@ -73,7 +73,7 @@ if err != nil {
     log.Fatal("AutoMigrate failed: ", err)
 }
 ```
-- Here’s how to update your routes:
+- Here’s how to update your routes:  
 🟢 Get All Tasks
 ```go
 func getTasks() []Task {
@@ -133,8 +133,14 @@ r.POST("/delete/:id", func(c *gin.Context) {
 - Head over to SSMS to update the **User Mapping** if haven't already done so.
 
 ## 5️⃣ Running the Application
+### Start the Server
 ```sh
 go run .
+```
+### Access the App
+Open a browser and visit:
+```
+http://localhost:8080
 ```
 
 ## 6️⃣ Clean Up Resources
