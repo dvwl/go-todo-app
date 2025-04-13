@@ -1,28 +1,26 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
 
-	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	"gorm.io/driver/sqlserver"
+	"gorm.io/gorm"
 )
 
-var db *sql.DB
+var db *gorm.DB
 
 type Task struct {
-    ID   int    `json:"id"`
+    ID   int    `gorm:"primaryKey" json:"id"`
     Text string `json:"text"`
     Done bool   `json:"done"`
 }
-
-// var tasks []Task
-// var nextID = 1
 
 func main() {
     // Load .env file
@@ -40,17 +38,19 @@ func main() {
 
     connString := fmt.Sprintf("server=%s;port=%d;database=%s;user id=%s;password=%s;",
         server, port, database, user, password)
-
-    db, err = sql.Open("sqlserver", connString)
+    
+    db, err = gorm.Open(sqlserver.Open(connString), &gorm.Config{})
     if err != nil {
-        panic("Failed to connect to database: " + err.Error())
+        log.Fatal("Failed to connect to database: ", err)
     }
-    defer db.Close()
 
-    // Ensure the connection is working
-    err = db.Ping()
-    if err != nil {
-        panic("Database connection failed: " + err.Error())
+    appEnv := os.Getenv("APP_ENV")
+
+    if appEnv == "development" {
+        err = db.AutoMigrate(&Task{})
+        if err != nil {
+            log.Fatalf("AutoMigrate failed: %v", err)
+        }
     }
 
     fmt.Println("Connected to MS SQL Server!")
@@ -60,9 +60,7 @@ func main() {
 
     // Routes
     // Render home page
-    // Step 4: modify for MS SQL
     r.GET("/", func(c *gin.Context) {
-        // c.HTML(http.StatusOK, "index.html", gin.H{"tasks": tasks})
         tasks := getTasks()
         c.HTML(http.StatusOK, "index.html", gin.H{"tasks": tasks})
     })
@@ -71,32 +69,22 @@ func main() {
     r.POST("/add", func(c *gin.Context) {
         text := c.PostForm("text")
         if text != "" {
-            // tasks = append(tasks, Task{ID: nextID, Text: text, Done: false})
-            // nextID++
-            _, err := db.Exec("INSERT INTO Tasks (Text, Done) VALUES (@p1, @p2)", text, false)
-            if err != nil {
-                c.String(http.StatusInternalServerError, "Error adding task: "+err.Error())
+            task := Task{Text: text, Done: false}
+            if result := db.Create(&task); result.Error != nil {
+                c.String(http.StatusInternalServerError, "Error adding task: " + result.Error.Error())
                 return
             }
         }
         c.Redirect(http.StatusSeeOther, "/")
     })
 
-    // Step 3: implement delete
     // Mark a task as done (Update)
     r.POST("/done/:id", func(c *gin.Context) {
-        // id := c.Param("id")
-        // for i, task := range tasks {
-        //     if id == strconv.Itoa(task.ID) {
-        //         tasks[i].Done = true
-        //         break
-        //     }
-        // }
         id, err := strconv.Atoi(c.Param("id"))
         if err == nil {
-            _, err := db.Exec("UPDATE Tasks SET Done = 1 WHERE ID = @p1", id)
-            if err != nil {
-                c.String(http.StatusInternalServerError, "Error marking task as done: "+err.Error())
+            result := db.Model(&Task{}).Where("id = ?", id).Update("done", true)
+            if result.Error != nil {
+                c.String(http.StatusInternalServerError, "Error marking task as done: " + result.Error.Error())
                 return
             }
         }
@@ -105,20 +93,11 @@ func main() {
 
     // Delete a task
     r.POST("/delete/:id", func(c *gin.Context) {
-        // id, err := strconv.Atoi(c.Param("id"))
-        // if err == nil {
-        //     for i, task := range tasks {
-        //         if task.ID == id {
-        //             tasks = append(tasks[:i], tasks[i+1:]...) // Remove task
-        //             break
-        //         }
-        //     }
-        // }
         id, err := strconv.Atoi(c.Param("id"))
         if err == nil {
-            _, err := db.Exec("DELETE FROM Tasks WHERE ID = @p1", id)
-            if err != nil {
-                c.String(http.StatusInternalServerError, "Error deleting task: "+err.Error())
+            result := db.Delete(&Task{}, id)
+            if result.Error != nil {
+                c.String(http.StatusInternalServerError, "Error deleting task: " + result.Error.Error())
                 return
             }
         }
@@ -130,21 +109,10 @@ func main() {
 
 // Fetch all tasks from the database
 func getTasks() []Task {
-    rows, err := db.Query("SELECT ID, Text, Done FROM Tasks")
-    if err != nil {
-        fmt.Println("Error fetching tasks:", err)
-        return nil
-    }
-    defer rows.Close()
-
     var tasks []Task
-    for rows.Next() {
-        var t Task
-        if err := rows.Scan(&t.ID, &t.Text, &t.Done); err != nil {
-            fmt.Println("Error scanning row:", err)
-            continue
-        }
-        tasks = append(tasks, t)
+    result := db.Find(&tasks)
+    if result.Error != nil {
+        fmt.Println("Error fetching tasks:", result.Error)
     }
     return tasks
 }
