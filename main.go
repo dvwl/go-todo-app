@@ -3,11 +3,14 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 var db *sql.DB
@@ -21,18 +24,23 @@ type Task struct {
 // var tasks []Task
 // var nextID = 1
 
-func main() {    
-	// Database connection
-    server := "localhost"
-	port := 1433
-	database := "TodoApp"
-    user:="<your user name>"
-    password:="<your password>"
+func main() {
+    // Load .env file
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatal("Error loading .env file")
+    }
+
+    // Database connection
+    server := os.Getenv("MSSQL_SERVER")
+    port := 1433
+    database := os.Getenv("MSSQL_DB")
+    user:= os.Getenv("MSSQL_USER")
+    password:= os.Getenv("MSSQL_PASSWORD")
 
     connString := fmt.Sprintf("server=%s;port=%d;database=%s;user id=%s;password=%s;",
         server, port, database, user, password)
 
-	var err error
     db, err = sql.Open("sqlserver", connString)
     if err != nil {
         panic("Failed to connect to database: " + err.Error())
@@ -46,26 +54,26 @@ func main() {
     }
 
     fmt.Println("Connected to MS SQL Server!")
-	
+    
     r := gin.Default()
     r.LoadHTMLGlob("templates/*")
 
-	// Routes
-	// Render home page
-	// Step 4: modify for MS SQL
+    // Routes
+    // Render home page
+    // Step 4: modify for MS SQL
     r.GET("/", func(c *gin.Context) {
         // c.HTML(http.StatusOK, "index.html", gin.H{"tasks": tasks})
-		tasks := getTasks()
+        tasks := getTasks()
         c.HTML(http.StatusOK, "index.html", gin.H{"tasks": tasks})
-	})
+    })
 
-	// Add a new task (Create)
+    // Add a new task (Create)
     r.POST("/add", func(c *gin.Context) {
         text := c.PostForm("text")
         if text != "" {
             // tasks = append(tasks, Task{ID: nextID, Text: text, Done: false})
             // nextID++
-			_, err := db.Exec("INSERT INTO Tasks (Text, Done) VALUES (@p1, @p2)", text, false)
+            _, err := db.Exec("INSERT INTO Tasks (Text, Done) VALUES (@p1, @p2)", text, false)
             if err != nil {
                 c.String(http.StatusInternalServerError, "Error adding task: "+err.Error())
                 return
@@ -74,8 +82,8 @@ func main() {
         c.Redirect(http.StatusSeeOther, "/")
     })
 
-	// Step 3: implement delete
-	// Mark a task as done (Update)
+    // Step 3: implement delete
+    // Mark a task as done (Update)
     r.POST("/done/:id", func(c *gin.Context) {
         // id := c.Param("id")
         // for i, task := range tasks {
@@ -84,7 +92,7 @@ func main() {
         //         break
         //     }
         // }
-		id, err := strconv.Atoi(c.Param("id"))
+        id, err := strconv.Atoi(c.Param("id"))
         if err == nil {
             _, err := db.Exec("UPDATE Tasks SET Done = 1 WHERE ID = @p1", id)
             if err != nil {
@@ -95,8 +103,8 @@ func main() {
         c.Redirect(http.StatusSeeOther, "/")
     })
 
-	// Delete a task
-	r.POST("/delete/:id", func(c *gin.Context) {
+    // Delete a task
+    r.POST("/delete/:id", func(c *gin.Context) {
         // id, err := strconv.Atoi(c.Param("id"))
         // if err == nil {
         //     for i, task := range tasks {
@@ -106,7 +114,7 @@ func main() {
         //         }
         //     }
         // }
-		id, err := strconv.Atoi(c.Param("id"))
+        id, err := strconv.Atoi(c.Param("id"))
         if err == nil {
             _, err := db.Exec("DELETE FROM Tasks WHERE ID = @p1", id)
             if err != nil {

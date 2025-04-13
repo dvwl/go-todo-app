@@ -1,6 +1,14 @@
-# Go To-Do App with MS SQL
+# Go To-Do App ~~with MS SQL~~ - SQL Backends with and without ORM
 
 This README documents my journey learning Go and building a simple **To-Do** application using **Gin (Go web framework)** and **Microsoft SQL Server**. This guide covers setup, installation, improvements, and how to run the project.
+
+A progression of working with different SQL backends and techniques in Go:
+
+| Branch         | Description                            |
+|----------------|----------------------------------------|
+| `main`         | Plain Go + MSSQL (no ORM)              |
+| `gorm-mssql`   | Same MSSQL backend, using GORM ORM     |
+| `gorm-mysql`   | GORM ORM with MySQL backend            |
 
 ---
 
@@ -54,7 +62,20 @@ func main() {
 - Download and install **Microsoft SQL Server** (Express Edition) from [Microsoft](https://www.microsoft.com/en-us/sql-server/sql-server-downloads).
 - Use **SQL Server Management Studio (SSMS)** for database management.
 - Ensure SQL Server is running on `localhost`, port `1433`.
-
+- To create a **New Login** using **SSMS GUI**
+    - Right-click **Logins** > **New Login...** under **Security**
+    - Enter:
+        - Login name
+        - Authentication type (SQL Server Authentication)
+        - Password
+        - Default database (optional)
+    - In **User Mapping** tab:
+        - Check the databases the user should access (TodoApp)
+        - Assign apropriate roles (e.g. `db_datareader`, `db_datawriter`, etc.)
+    - Test the connection:
+    ```sh
+    sqlcmd -S localhost -d TodoApp -U your_username -P your_password
+    ```
 
 ## 2️⃣ Project Setup
 
@@ -453,9 +474,23 @@ TCP    [::]:1433         [::]:0         LISTENING
         password := os.Getenv("MSSQL_PASSWORD")
         ```
 - This way, your username and password are not hardcoded in your source code, making your application more secure and flexible.
+- We'll use `go get github.com/joho/godotenv`, a popular package that loads `.env` files into your environment.
+```sh
+go get github.com/joho/godotenv
+```
+- Don't forget to call it in your `main.go`:
+```go
+// Load .env file
+err := godotenv.Load()
+if err != nil {
+    log.Fatal("Error loading .env file")
+}
+```
 
 ## 🔟 References
 - [Configure Go with Visual Studio Code](https://learn.microsoft.com/en-us/azure/developer/go/configure-visual-studio-code) 
 - [Go Documentation](https://go.dev/doc/)
 - [Gin Web Framework](https://github.com/gin-gonic/gin)
 - [Microsoft SQL Server](https://www.microsoft.com/en-us/sql-server/)
+- [GoDotEnv](https://pkg.go.dev/github.com/joho/godotenv)
+- [GORM Documentation](https://gorm.io/)
